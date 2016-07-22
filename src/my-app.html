@@ -20,25 +20,39 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="../bower_components/iron-pages/iron-pages.html">
 <link rel="import" href="../bower_components/iron-selector/iron-selector.html">
 <link rel="import" href="./libs/my-icons.html">
+<link rel="import" href="./components/atoms">
+<link rel="import" href="./components/molecules">
 
 <dom-module id="my-app">
 
   <template>
-
+    <firebase-app 
+      auth-domain="comp-lib-altus.firebaseapp.com"
+      database-url="https://comp-lib-altus.firebaseio.com/"
+      api-key="AIzaSyAEhx57-0yz3aenINWrxSp-gGqCkZZoGZU"
+    >
+    </firebase-app>
+    <firebase-auth id="auth" user="{{user}}" provider="google" on-error="showError"></firebase-auth>
+    
     <style>
 
       :host {
         display: block;
-        --app-primary-color: #4285f4;
-        --app-secondary-color: black;
+        /*--app-primary-color: #4285f4;*/
+        /*--app-secondary-color: black;*/
       }
 
       app-header {
-        background-color: var(--app-primary-color);
-        color: #fff;
+        background-color: #e0c453;
+        color: #2b2b2b;
       }
       app-header paper-icon-button {
         --paper-icon-button-ink-color: white;
+      }
+      
+      app-drawer {
+        background-color: #e0c453;
+        color: #2b2b2b;
       }
 
       .drawer-list {
@@ -57,6 +71,33 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       }
       .drawer-list a.subroute {
         padding-left: 32px;
+      }
+      
+      #loginButton {
+        color: #e0c453;
+        background-color: black;
+      }
+      
+      paper-dialog {
+        color: #e0c453;
+        background-color: #2b2b2b;
+        font-family: 'Source Sans Pro', sans-serif;
+        font-weight: 300;
+      }
+      
+      #primaryToast {
+        --paper-toast-background-color: #e0c453;
+        --paper-toast-color: #433b19;
+      }
+      
+      #successToast {
+        --paper-toast-background-color: #9dc56e;
+        --paper-toast-color: #2f3b21;
+      }
+      
+      #errorToast {
+        --paper-toast-background-color: #e53935;
+        --paper-toast-color: #fff;
       }
 
 
@@ -86,12 +127,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         <app-header condenses reveals effects="waterfall">
           <app-toolbar>
             <paper-icon-button icon="menu" drawer-toggle></paper-icon-button>
-            <div title>N.I.C.E</div>
+            <div title>블러그</div>
+            <template is="dom-if" if="{{!user}}">
+              <paper-button id="loginButton" on-tap="toggleAuthModal">로그인</paper-button>
+            </template>
+            <template is="dom-if" if="{{user}}">
+              <paper-button id="loginButton" on-tap="signOut">로그아웃</paper-button>
+            </template>
+            
           </app-toolbar>
         </app-header>
 
         <iron-pages role="main" selected="[[page]]" attr-for-selected="name">
-          <root-home name="root-home"></root-home>
+          <root-home name="root-home" user="{{user}}"></root-home>
           <article-list name="articles"></article-list>
           <infographic-list name="infographics"></infographic-list>
         </iron-pages>
@@ -99,7 +147,42 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       </app-header-layout>
 
     </app-drawer-layout>
+    
+    <paper-dialog id="authModal">
+      <h2>Log-in</h2>
+      <div hidden$="{{user}}">
+        <form on-submit="signInWithEmailAndPassword">
+          <paper-input value="{{email}}" type="email" placeholder="Email"></paper-input>
+          <paper-input value="{{password}}" type="password" placeholder="Password"></paper-input>
+          <paper-button raised type="submit" on-tap="signInWithEmailAndPassword">Sign In</paper-button>
+          <paper-button raised type="button" on-tap="createUserWithEmailAndPassword">Sign Up</paper-button>
+        </form>
+        <p>
+          <paper-button raised on-tap="signInAnonymously">
+            <iron-icon icon="perm-identity"></iron-icon>Sign-in anonymously
+          </paper-button>
+          <paper-button raised on-tap="signInWithGoogle">
+            <iron-icon icon="social:group-add"></iron-icon>Sign-in with Google
+          </paper-button>
+        </p>
+      </div>
+      <div hidden$="{{!user}}">
+        <table>
+          <tr><th>uid</th> <td>{{user.uid}}</td></tr>
+          <paper-input id="specialUID" name="UID" hidden=true value="{{user.uid}}"></paper-input>
+          <tr><th>displayName</th> <td>{{user.displayName}}</td></tr>
+          <tr><th>email</th> <td>{{user.email}}</td></tr>
+          <tr><th>emailVerified</th> <td>{{user.emailVerified}}</td></tr>
+        </table>
 
+        <button on-tap="signOut">Sign Out</button>
+      </div>
+    </paper-dialog>
+
+
+    <paper-toast id="primaryToast"></paper-toast>
+    <paper-toast id="successToast"></paper-toast>
+    <paper-toast id="errorToast"></paper-toast>
   </template>
 
   <script>
@@ -117,6 +200,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         },
 
       },
+      
+      user: {
+          type: Object,
+          value: null,
+          notify: true
+        },
 
       observers: [
         '_routePageChanged(routeData.page)'
@@ -135,6 +224,63 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       
       ready: function() {
         
+      },
+      
+      toggleAuthModal: function(e) {
+        this.$$('#authModal').open();
+      },
+      
+      showError: function(e) {
+        this.error = e.detail;
+      },
+      
+      signInAnonymously: function() {
+        this.error = null;
+        this.$.auth.signInAnonymously().then(function(result) {
+          this.$.successToast.show('Successfully logged in');
+        }.bind(this)).catch(function() {
+          this.$.errorToast.show('Log in failed');
+        });
+        // this.$$('#loginToast').open();
+        
+      },
+      
+      signInWithGoogle: function() {
+        this.error = null;
+        this.$.auth.signInWithPopup();
+      },
+      
+      signInWithEmailAndPassword: function(e) {
+        if (e) { e.preventDefault(); }
+        this.error = null;
+        this.$.auth.signInWithEmailAndPassword(this.email, this.password).then(function(result) {
+          this.$.primaryToast.show('Successfully logged in!');
+        }).catch(function(error) {
+          this.$.errorToast.show('There was an error in logging in');
+        });
+        this.email = null;
+        this.password = null;
+      },
+      
+      createUserWithEmailAndPassword: function() {
+        this.error = null;
+        this.$.auth.createUserWithEmailAndPassword(this.email, this.password).then(function(result) {
+          this.$.successToast.show('Successfully registered an account!');
+        }.bind(this));
+        // this.$.firebaseLogin.createUser(this.email, this.password).then(function(result) {
+        //   this.$.successToast.show('Successfully registered an account');
+        // }.bind(this)).catch(function(error) {
+        //   this.$.errorToast.show('There was an error in your registration');
+        // });
+        this.email = null;
+        this.password = null;
+      },
+      
+      signOut: function() {
+        this.error = null;
+        this.$.auth.signOut().then(function(result) {
+          this.$.primaryToast.show('Successfully logged out');
+        }.bind(this)).catch();
       }
 
     });

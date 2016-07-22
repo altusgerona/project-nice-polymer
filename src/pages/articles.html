@@ -13,13 +13,28 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <dom-module id="article-list">
 
   <template>
-
+    <firebase-query
+    path="/articles/something"
+    data="{{sample}}"
+    >
+    </firebase-query>
+    <firebase-document
+      id="fire"
+      path="/articles/something"
+      data="{{new}}"
+    >
+    </firebase-document>
     <style>
       
     </style>
 
     <div>
         Article List
+        <div class="card-container" id="notes">
+          <template is="dom-repeat" items="{{sample}}">
+            <paper-material></paper-material>
+          </template>
+        </div>
     </div>
 
   </template>

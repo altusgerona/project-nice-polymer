@@ -9,28 +9,320 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 -->
 
 <link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/parallax-container/parallax-container.html">
+<link rel="import" href="../../bower_components/iron-image/iron-image.html">
 
 <dom-module id="root-home">
 
-  <template>
+  <template id="blog">
+  <firebase-query
+    id="query"
+    path="/articles"
+    data="{{sample}}"
+  >
+  </firebase-query>
+  <firebase-document
+    id="fire"
+  >
+  </firebase-document>
+  <style is="custom-style">
+    #notes {
+      @apply(--layout-vertical);
+      @apply(--layout-center);
+    }
+  
+    #notes > paper-card {
+      box-sizing: border-box;
+      max-width: 500px;
+      margin: 4px;
+      flex: 0 0 auto;
+    }
+    
+    #fab {
+      position: absolute;
+      right:    0;
+      bottom:   0;
+      margin-right: 50px;
+      margin-bottom: 30px;
+      position: fixed;
+    }
+    
+    paper-card {
+      width: 100%;
+      color: #e0c453;
+      --paper-card-header-color: #e0c453;
+    }
+    
+    paper-dialog {
+      width: 500px;
+    }
+    
+    #card-text {
+      word-wrap: break-word;
+    }
+    
+    .amber {
+      background: #333332;
+    }
+    .lime {
+      background: var(--paper-lime-500);
+    }
+    .cyan {
+      background: var(--paper-cyan-500);
+    }
+    .dark {
+      background: var(--paper-blue-grey-500);
+    }
+    paper-icon-button {
+      color: var(--paper-grey-600);
+    }
+    paper-icon-button.white {
+      color: white !important;
+    }
+    paper-dialog {
+      color: #e0c453;
+      background-color: #2b2b2b;
+      font-family: 'Source Sans Pro', sans-serif;
+      font-weight: 300;
+    }
+    
+    paper-card .header {
+      position: relative;
+      border-top-left-radius: inherit;
+      border-top-right-radius: inherit;
+      overflow: hidden;
 
-    <style>
-      
-    </style>
+      @apply(--paper-card-header);
+      @apply(--layout-horizontal);
+    }
+    
+    paper-card .header .title-text {
+      padding-left: 16px;
+      margin-top: 5px;
+      font-size: 24px;
+      font-weight: 400;
+    }
+    
+    paper-card .header #options {
+      position: absolute;
+      right: 0;
+    }
+    
+    .dropdown-content {
+      @apply(--shadow-elevation-2dp);
 
-    <div>
-        Home
-    </div>
+      position: relative;
+      /*border-radius: 2px;*/
+      background-color: #333332;
+      border-color: #333332;
 
+      /*@apply(--paper-menu-button-content);*/
+    }
+    
+    #primaryToast {
+      background-color: #e0c453;
+      color: #433b19;
+    }
+    
+    #successToast {
+      background-color: #9dc56e;
+      color: #2f3b21;
+    }
+    
+    #errorToast {
+      background-color: #e53935;
+      color: #fff;
+    }
+  </style>
+  <div class="card-container" id="notes">
+    <template is="dom-repeat" items="{{sample}}">
+      <paper-card class="amber">
+        <div class="header">
+          <p class="title-text">{{item.articleName}}</p>
+          <div>
+            <paper-menu-button id="options">
+              <paper-icon-button icon="icons:more-vert" class="dropdown-trigger"></paper-icon-button>
+              <paper-menu class="dropdown-content">
+                <paper-item on-tap="editArticle" value="{{item}}">Edit</paper-item>
+                <paper-item on-tap="deleteArticle" value="{{item}}">Delete</paper-item>
+              </paper-menu>
+            </paper-menu-button>
+          </div>
+        </div>
+        
+        <div class="card-content" id="card-text">
+          {{item.body}}
+        </div>
+      </paper-card>
+    </template>
+  </div>
+  <paper-dialog id="modal" on-iron-overlay-opened="patchOverlay" modal>
+    <h2>Add Article</h2>
+
+        <form on-submit="addItem">
+          <paper-input id="uid" name="UID" hidden="true" value="{{user}}"></paper-input>
+          <paper-input name="title" label="Article Title" auto-validate id="articleName" value="{{articleName}}"></paper-input>
+          <paper-textarea label="Type here" rows=5  max-rows=5 wrap="hard" id="body" value="{{body}}"></paper-textarea>
+    
+          <paper-button raised on-tap="addItem" id="eventsDemoSubmit">
+            Submit
+          </paper-button>
+          <paper-button raised dialog-confirm>
+            Close
+          </paper-button>
+          <div class="output"></div>
+        </form>
+
+  </paper-dialog>
+  
+  <paper-dialog id="editModal" on-iron-overlay-opened="patchOverlay" modal>
+    <h2>Edit Article</h2>
+
+        <form on-submit="editItem">
+          <paper-input id="uid" name="UID" hidden="true" value="{{user}}"></paper-input>
+          <paper-input name="title" label="Article Title" auto-validate id="editArticleName" value="{{articleName}}"></paper-input>
+          <paper-textarea label="Type here" rows=5  max-rows=5 id="editBody" value="{{body}}"></paper-textarea>
+    
+          <paper-button raised on-tap="editItem" id="eventsDemoSubmit">
+            Submit
+          </paper-button>
+          <paper-button raised dialog-confirm>
+            Close
+          </paper-button>
+        </form>
+
+  </paper-dialog>
+  
+  <paper-dialog id="deleteModal" on-iron-overlay-opened="patchOverlay" modal>
+    <h2>Delete Article</h2>
+    <p>Are you sure you want to delete this article?</p>
+    <paper-button dialog-confirm raised on-tap="deleteItem">
+      Delete
+    </paper-button>
+    <paper-button dialog-confirm raised>
+      Close
+    </paper-button>
+  </paper-dialog>
+  
+  <paper-toast id="primaryToast"></paper-toast>
+  <paper-toast id="successToast"></paper-toast>
+  <paper-toast id="errorToast"></paper-toast>
+  
+  <div id="fab">
+    <paper-fab icon="add" on-tap="toggleModal"></paper-fab>
+  </div>
+  
   </template>
 
   <script>
-
     Polymer({
 
-      is: 'root-home'
+      is: 'root-home',
+      properties: {
+        uid: String,
+        user: {
+          type: Object,
+          notify: true,
+          reflectToAttribute: true,
+        }
+      },
+      
+      _sampleObserver: function(oldData, newData) {
+        console.log(oldData);
+        console.log(newData);
+      },
+      
+      editArticle: function(e) {
+        console.log("edit bitch");
+        console.log(e.target.value);
+        this.$.editArticleName.value = e.target.value.articleName;
+        this.$.editBody.value = e.target.value.body;
+        this.key = e.target.value.$key;
+        this.$$('#editModal').open();
+      },
+      
+      deleteArticle: function(e) {
+        this.key = e.target.value.$key;
+        this.$$('#deleteModal').open();
+      },
+      
+      showOptions: function(e) {
+        this.$.options.open();
+      },
+      
+      toggleModal: function(e) {
+        this.$$('#modal').open();
+      },
+      ready: function() {
+        this.articles = [
+            {articleName: 'zydrick', body: 'text'},
+            {articleName: 'gauven', body: 'text2'},
+            {articleName: 'tj', body: 'text3'}
+          ];
+      },
+      
+      deleteItem: function() {
+        this.$.fire.reset();
+        this.$.fire.path = "/articles/"+this.key;
+        this.$.fire.destroy().then(function() {
+          this.$.successToast.show('Successfully deleted the article.');
+        }.bind(this));
+      },
+      
+      editItem: function() {
+        this.$.fire.reset();
+        this.$.fire.data = {
+          articleName: this.articleName,
+          body: this.body,
+          uid: this.user.uid
+        };
+        
+        this.$.fire.setStoredValue("/articles/"+this.key, this.$.fire.data).then(function() {
+          this.$.fire.path = null;
+          this.$.successToast.show('Successfully eduted an article!');
+        }.bind(this)).catch(function() {
+          this.$.errorToast.show('There was an error in editing your article.');
+        });
+        
+        this.$.fire.reset();
+        this.$.editArticleName.value = "";
+        this.$.editBody.value = "";
+        this.$$('#editModal').close();
+      },
+      
+      addItem: function() {
+        console.log("I was called");
+        
+        // var obj = {articleName: this.articleName, body: this.body}
+        // this.push('articles', obj);
+        // this.$.fire.reset();
+        this.$.fire.data = {
+          articleName: this.articleName,
+          body: this.body,
+          uid: this.user.uid
+        };
+        this.$.fire.save("/articles").then(function() {
+          this.$.successToast.show('Successfully added an article!');
+          this.$.fire.path = null;
+        }.bind(this)).catch(function() {
+          this.$.errorToast.show('There was an error in adding your article');
+        });
+        // this.$.fire.reset();
+        
+        this.$.articleName.value = "";
+        this.$.body.value = "";
+        this.$$('#modal').close();
+      },
+      
+      patchOverlay: function (e) {
+        if (e.target.withBackdrop) {
+          e.target.parentNode.insertBefore(e.target.backdropElement, e.target);
+        }
+      }
+      
 
     });
+    
 
   </script>
 
